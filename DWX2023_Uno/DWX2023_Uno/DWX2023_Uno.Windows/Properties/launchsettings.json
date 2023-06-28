@@ -1,0 +1,10 @@
+{
+  "profiles": {
+	"DWX2023_Uno.Windows (Package)": {
+	  "commandName": "MsixPackage"
+	},
+	"DWX2023_Uno.Windows (Unpackaged)": {
+	  "commandName": "Project"
+	}
+  }
+}
