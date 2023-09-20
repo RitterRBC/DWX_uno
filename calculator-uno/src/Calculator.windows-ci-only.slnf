@@ -1,0 +1,16 @@
+{
+  "solution": {
+    "path": "Calculator.sln",
+    "projects": [
+      "CalcManager.Android\\CalcManager.Android.vcxproj",
+      "CalcManager.Win32\\CalcManager.Win32.vcxproj",
+      "CalcManager\\CalcManager.vcxproj",
+      "Calculator.Droid\\Calculator.Droid.csproj",
+      "Calculator.Shared\\Calculator.Shared.shproj",
+      "Calculator.UWP\\Calculator.UWP.csproj",
+      "Calculator.Wasm\\Calculator.Wasm.csproj",
+      "Calculator.iOS\\Calculator.iOS.csproj",
+      "Calculator.macOS\\Calculator.macOS.csproj"
+    ]
+  }
+}

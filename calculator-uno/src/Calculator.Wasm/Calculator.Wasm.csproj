@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net7.0</TargetFramework>
+		<NoWarn>NU1701</NoWarn>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<DefaultLanguage>en-US</DefaultLanguage>
+		<IsUnoHead>true</IsUnoHead>
+
+		<WasmShellGenerateCompressedFiles Condition="'$(Configuration)'=='Debug'">false</WasmShellGenerateCompressedFiles>
+		<MonoRuntimeDebuggerEnabled Condition="'$(Configuration)'=='Debug'">true</MonoRuntimeDebuggerEnabled>
+		<WasmPWAManifestFile>manifest.json</WasmPWAManifestFile>
+		<WasmShellIndexHtmlPath>$(MSBuildThisFileDirectory)index.html</WasmShellIndexHtmlPath>
+
+		<UseAOT Condition="($([MSBuild]::IsOsPlatform('Linux')) or ( $([MSBuild]::IsOsPlatform('Windows')) and '$(SkipWasmBuild)'=='' )) and '$(Configuration)'=='Release'">true</UseAOT>
+		<WasmShellMonoRuntimeExecutionMode Condition="'$(UseAOT)'!=''">InterpreterAndAOT</WasmShellMonoRuntimeExecutionMode>
+		<WasmShellEnableEmccProfiling>true</WasmShellEnableEmccProfiling>
+		
+		<!--<WasmShellGenerateAOTProfile>true</WasmShellGenerateAOTProfile>-->
+		
+		<!-- https://github.com/dotnet/runtime/issues/50508 -->
+		<WasmShellEnableAOTDeduplication>false</WasmShellEnableAOTDeduplication>
+		
+		<UnoXamlResourcesTrimming>true</UnoXamlResourcesTrimming>
+	</PropertyGroup>
+	<ItemGroup>
+		<Content Include="..\Calculator.UWP\Assets\*.png" Link="Assets\%(FileName)%(Extension)" />
+	</ItemGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="WasmCSS\Fonts.css" />
+		<EmbeddedResource Include="WasmScripts\*.js" />
+		<Content Include="Images\*.png" />
+		<Compile Include="..\AssemblyVersion.Wasm.cs" Link="Properties\AssemblyVersion.Wasm.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<LinkerDescriptor Include="LinkerConfig.xml" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(UseAOT)'!=''">
+		<WasmShellEnableAotProfile Include="aot.profile" />
+	</ItemGroup>
+
+	<!--
+	<ItemGroup>
+		<WasmShellExtraEmccFlags Include="-fsanitize=address" />
+		<WasmShellExtraEmccFlags Include="-s TOTAL_MEMORY=393216000" />
+	</ItemGroup>
+	-->
+
+	<ItemGroup>
+		<WasmShellMonoEnvironment Include="MONO_GC_PARAMS" Value="soft-heap-limit=512m,nursery-size=64m,evacuation-threshold=66,major=marksweep" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(Configuration)'=='Debug'">
+		<WasmShellMonoEnvironment Include="MONO_LOG_LEVEL" Value="debug" />
+		<WasmShellMonoEnvironment Include="MONO_LOG_MASK" Value="gc" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.TypeScript.Compiler" Version="3.1.5">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.TypeScript.MSBuild" Version="3.3.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="6.0.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+		<PackageReference Include="Uno.UI.WebAssembly" Version="4.8.0-dev.30" />
+		<PackageReference Include="Uno.UI.Sample.Banner" Version="1.44.0-dev.45" />
+		<PackageReference Include="Uno.Wasm.Bootstrap" Version="7.0.12" />
+		<PackageReference Include="Uno.Wasm.Bootstrap.DevServer" Version="7.0.12" />
+		<PackageReference Include="Microsoft.Windows.Compatibility" Version="5.0.1" />
+		<PackageReference Include="Uno.UI.Adapter.Microsoft.Extensions.Logging" Version="4.8.0-dev.30" />
+		<PackageReference Include="Uno.Core.Extensions.Disposables" Version="4.0.1" />
+		<PackageReference Include="Uno.Extensions.Logging.WebAssembly.Console" Version="1.4.0" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<MonoRuntimeMixedModeExcludedAssembly Include="Newtonsoft.Json" />
+		<MonoRuntimeMixedModeExcludedAssembly Include="System.Data" />
+	</ItemGroup>
+	<ItemGroup Condition="$([MSBuild]::IsOsPlatform('Linux')) or ( $([MSBuild]::IsOsPlatform('Windows')) and '$(SkipWasmBuild)'=='' )">
+		<Content Include="..\CalcManager\bin\wasm\CalcManager.bc" Link="CalcManager.bc" />
+	</ItemGroup>
+	<ItemGroup>
+		<TypeScriptCompile Include="ts\GoogleAnalytics.ts" />
+	</ItemGroup>
+	<Import Project="..\Calculator.Shared\Calculator.Shared.projitems" Label="Shared" Condition="Exists('..\Calculator.Shared\Calculator.Shared.projitems')" />
+</Project>
