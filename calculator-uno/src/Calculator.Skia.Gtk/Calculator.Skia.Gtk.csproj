@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+		<OutputType Condition="'$(Configuration)'=='Release'">WinExe</OutputType>
+		<OutputType Condition="'$(Configuration)'=='Debug'">Exe</OutputType>
+		<TargetFramework>net7.0</TargetFramework>
+		<DefineConstants>$(DefineConstants);UNO_REFERENCE_API</DefineConstants>
+		<NoWarn>$(NoWarn);Uno0001</NoWarn>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<DefaultLanguage>en-US</DefaultLanguage>
+		<UnoUIUseRoslynSourceGenerators>false</UnoUIUseRoslynSourceGenerators>
+	</PropertyGroup>
+	
+	<ItemGroup>
+		<EmbeddedResource Include="..\Calculator.UWP\Package.appxmanifest" LogicalName="Package.appxmanifest" />
+		<Content Include="..\Calculator.UWP\Assets\StoreLogo.scale-100.png" Link="Assets\StoreLogo.png" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<UpToDateCheckInput Include="..\$ext_safeprojectname$.Shared\**\*.xaml" />
+	</ItemGroup>
+	
+  <ItemGroup>
+		<PackageReference Include="Uno.UI.Skia.Gtk" Version="4.8.0-dev.30" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+		<PackageReference Include="Uno.UI.Adapter.Microsoft.Extensions.Logging" Version="4.8.0-dev.30" />
+		<PackageReference Include="Uno.Core.Extensions.Disposables" Version="4.0.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="Assets\Fonts\uno-fluentui-assets.ttf" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<Content Condition="'$(RuntimeIdentifier)'==''" Include="..\x64\$(Configuration)\CalcManager.*.dll" Link="runtimes\win-x64\native\%(FileName)%(Extension)">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Condition="'$(RuntimeIdentifier)'!=''" Include="..\x64\$(Configuration)\CalcManager.*.dll" Link="%(FileName)%(Extension)">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Condition="'$(RuntimeIdentifier)'==''" Include="..\CalcManager\bin\runtimes\**\*.so" Link="runtimes\%(RecursiveDir)\%(FileName)%(Extension)">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+		<Content Condition="'$(RuntimeIdentifier)'!=''" Include="..\CalcManager\bin\runtimes\$(RuntimeIdentifier)\native\*.so" Link="%(FileName)%(Extension)">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Remove="Assets\Fonts\uno-fluentui-assets.ttf" />
+	</ItemGroup>
+
+	<Import Project="..\Calculator.Shared\Calculator.Shared.projitems" Label="Shared" />
+</Project>

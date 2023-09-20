@@ -1,0 +1,58 @@
+
+steps:
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET'
+    inputs:
+      packageType: 'sdk'
+      version: '7.0.x'
+
+  - task: nventiveCanaryUpdater@5
+    displayName: 'Canary Update (dev)'
+    retryCountOnTaskFailure: 3
+    condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/canaries/dev')
+    inputs:
+      solution: src/Calculator.sln
+      branchToMerge: uno
+      summaryFile: '$(Build.ArtifactStagingDirectory)/Canary.md'
+      resultFile: '$(Build.ArtifactStagingDirectory)/result.json'
+      nugetUpdaterVersion: '2.3.0-alpha.46'
+      packageAuthor: nventive
+
+  - task: nventiveCanaryUpdater@5
+    displayName: 'Canary Update (5x)'
+    condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/canaries/5x')
+    inputs:
+      solution: src/Calculator.sln
+      usePrivateFeed: false
+      useNuGetOrg: true
+      mergeBranch: true
+      branchToMerge: 'uno'
+      nugetUpdaterVersion: '2.3.0-alpha.46'
+      nugetVersion: feature.5x,dev
+      packageAuthor: 'nventive,unoplatform,uno platform'
+      summaryFile: '$(Build.ArtifactStagingDirectory)/Summary.md'
+      resultFile: '$(Build.ArtifactStagingDirectory)/Results.json'
+      additionalPublicSources: 'https://pkgs.dev.azure.com/uno-platform/1dd81cbd-cb35-41de-a570-b0df3571a196/_packaging/dev-uno5/nuget/v3/index.json'
+
+  - pwsh: |
+      cd $(build.sourcesdirectory)
+      dotnet nuget add source https://pkgs.dev.azure.com/uno-platform/1dd81cbd-cb35-41de-a570-b0df3571a196/_packaging/dev-uno5/nuget/v3/index.json -n unodev5x
+    condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/canaries/5x')
+    displayName: 'Use uno dev 5x source'
+
+  - pwsh: |
+      gci -r -include "info.plist" |
+      foreach-object {
+          $a = $_.fullname; ( get-content $a ) |
+          foreach-object { $_ -replace "uno.platform.calculator","uno.platform.calculator-canary" }  | 
+          set-content $a }
+    condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/canaries')
+
+  - pwsh: |
+      gci -r -include "AndroidManifest.xml" |
+      foreach-object {
+          $a = $_.fullname; ( get-content $a ) |
+          foreach-object { $_ -replace "uno.platform.calculator","uno.platform.calculator.canary" }  | 
+          set-content $a }
+    condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/canaries')

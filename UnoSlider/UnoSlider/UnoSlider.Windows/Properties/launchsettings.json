@@ -1,0 +1,10 @@
+{
+  "profiles": {
+	"UnoSlider.Windows (Package)": {
+	  "commandName": "MsixPackage"
+	},
+	"UnoSlider.Windows (Unpackaged)": {
+	  "commandName": "Project"
+	}
+  }
+}

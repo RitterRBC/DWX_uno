@@ -1,0 +1,405 @@
+jobs:
+
+- job: Linux_Skia_CalcManager
+  container: unoplatform/dotnet-build:3.0.1
+
+  pool:
+    vmImage: 'ubuntu-20.04'
+
+  variables:
+    NUGET_PACKAGES: $(build.sourcesdirectory)/.nuget
+    VersionCodeOffset: 400559 # last value for the APK release
+
+  steps:
+  - checkout: self
+    clean: true
+
+  - template: build/uno-ci/canary-updater.yml
+
+  - script: |
+      cd src/CalcManager
+      chmod +x build_linux.sh
+      ./build_linux.sh
+
+    displayName: 'Build CalcManager'
+
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Package Artifacts
+    retryCountOnTaskFailure: 3
+    inputs:
+      pathToPublish: $(build.sourcesdirectory)/src/CalcManager/bin/runtimes
+      artifactType: container
+      artifactName: CalcManagerLibs
+
+- job: Linux_Skia_x86
+  dependsOn: Linux_Skia_CalcManager
+
+  container: unoplatform/dotnet-build:3.0.1
+
+  pool:
+    vmImage: 'ubuntu-20.04'
+
+  variables:
+    NUGET_PACKAGES: $(build.sourcesdirectory)/.nuget
+    VersionCodeOffset: 400559 # last value for the APK release
+
+  workspace:
+    clean: all
+
+  steps:
+  - checkout: self
+    clean: true
+
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      artifactName: CalcManagerLibs
+      downloadPath: '$(build.sourcesdirectory)/src/build'
+
+  - script: |
+        mkdir -p $(build.sourcesdirectory)/src/CalcManager/bin/runtimes
+        cp -rv $(build.sourcesdirectory)/src/build/CalcManagerLibs/* $(build.sourcesdirectory)/src/CalcManager/bin/runtimes
+
+    displayName: 'Copy CalcManager to final location'
+
+  - template: build/uno-ci/canary-updater.yml
+  - template: build/uno-ci/gitversion.yml
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET SDK'
+    retryCountOnTaskFailure: 3
+    inputs:
+      version: 7.0.102
+
+  - task: MSBuild@1
+    displayName: 'Setup versions'
+    retryCountOnTaskFailure: 3
+    inputs:
+      solution: src/build/build.csproj
+      msbuildLocationMethod: version
+      msbuildVersion: latest
+      msbuildArchitecture: x86
+      msbuildArguments: /r /p:Configuration=Release /detailedsummary
+      clean: false
+      maximumCpuCount: true
+      restoreNugetPackages: false
+      logProjectEvents: false
+      createLogFile: false
+
+  - script: |
+      dotnet publish -c Release -r linux-x64 --self-contained true $(build.sourcesdirectory)/src/Calculator.Skia.Gtk/Calculator.Skia.Gtk.csproj
+      echo "$GITVERSION_FullSemVer" > $(build.sourcesdirectory)/src/Calculator.Skia.Gtk/bin/Release/net7.0/linux-x64/publish/VERSION
+
+    displayName: 'Build Skia linux-x64'
+    env:
+      GITVERSION_FullSemVer: $(GITVERSION.FullSemVer)
+
+  - script: mkdir -p $(Build.ArtifactStagingDirectory)/skia
+    displayName: 'Create artifacts folder'
+
+  - task: ArchiveFiles@2
+    displayName: 'Archive Skia linux-x64'
+    inputs:
+      rootFolderOrFile: '$(build.sourcesdirectory)/src/Calculator.Skia.Gtk/bin/Release/net7.0/linux-x64/publish/'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/skia/Calculator-linux-x64.zip' 
+      includeRootFolder: false
+
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Package Artifacts
+    retryCountOnTaskFailure: 3
+    inputs:
+      pathToPublish: $(build.artifactstagingdirectory)
+      artifactType: container
+      artifactName: Calculator
+
+- job: Linux_Skia_ARM
+  dependsOn: Linux_Skia_CalcManager
+
+  container: unoplatform/dotnet-build:3.0.1-arm64
+  pool: 'Linux-Arm64-20.04'
+
+  #container: unoplatform/dotnet-build:3.0.1
+  #pool:
+  #  vmImage: 'ubuntu-20.04'
+  
+  workspace:
+    clean: all
+
+  variables:
+    NUGET_PACKAGES: $(build.sourcesdirectory)/.nuget
+    VersionCodeOffset: 400559 # last value for the APK release
+
+  steps:
+  - checkout: self
+    clean: true
+
+  - template: build/uno-ci/canary-updater.yml
+
+  - task: gitversion/setup@0
+    retryCountOnTaskFailure: 3
+    inputs:
+      versionSpec: '5.x'
+
+  - task: gitversion/execute@0
+    inputs:
+      updateAssemblyInfo: 'False'
+      useConfigFile: true
+      configFilePath: gitversion.yml
+    displayName: Use GitVersion
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET SDK'
+    retryCountOnTaskFailure: 3
+    inputs:
+      version: 7.0.102
+
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      artifactName: CalcManagerLibs
+      downloadPath: '$(build.sourcesdirectory)/src/build'
+
+  - script: |
+        mkdir -p $(build.sourcesdirectory)/src/CalcManager/bin/runtimes
+        cp -rv $(build.sourcesdirectory)/src/build/CalcManagerLibs/* $(build.sourcesdirectory)/src/CalcManager/bin/runtimes
+
+    displayName: 'Copy CalcManager to final location'
+
+  - task: MSBuild@1
+    displayName: 'Setup versions'
+    retryCountOnTaskFailure: 3
+    inputs:
+      solution: src/build/build.csproj
+      msbuildLocationMethod: version
+      msbuildVersion: latest
+      msbuildArchitecture: x86
+      msbuildArguments: /r /p:Configuration=Release /detailedsummary
+      clean: false
+      maximumCpuCount: true
+      restoreNugetPackages: false
+      logProjectEvents: false
+      createLogFile: false
+
+  - script: |
+        dotnet publish -c Release -r linux-arm --self-contained true $(build.sourcesdirectory)/src/Calculator.Skia.Gtk/Calculator.Skia.Gtk.csproj
+        echo "$GITVERSION_FullSemVer" > $(build.sourcesdirectory)/src/Calculator.Skia.Gtk/bin/Release/net7.0/linux-arm/publish/VERSION
+
+    displayName: 'Build Skia linux-arm'
+    env:
+      GITVERSION_FullSemVer: $(GITVERSION.FullSemVer)
+
+  - script: |
+        dotnet publish -c Release -r linux-arm64 --self-contained true $(build.sourcesdirectory)/src/Calculator.Skia.Gtk/Calculator.Skia.Gtk.csproj
+        echo "$GITVERSION_FullSemVer" > $(build.sourcesdirectory)/src/Calculator.Skia.Gtk/bin/Release/net7.0/linux-arm64/publish/VERSION
+
+    displayName: 'Build Skia linux-arm64'
+    env:
+      GITVERSION_FullSemVer: $(GITVERSION.FullSemVer)
+
+  - script: mkdir -p $(Build.ArtifactStagingDirectory)/skia
+    displayName: 'Create artifacts folder'
+
+  - task: ArchiveFiles@2
+    displayName: 'Archive Skia linux-arm'
+    inputs:
+      rootFolderOrFile: '$(build.sourcesdirectory)/src/Calculator.Skia.Gtk/bin/Release/net7.0/linux-arm/publish/'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/skia/Calculator-linux-arm.zip' 
+      includeRootFolder: false
+
+  - task: ArchiveFiles@2
+    displayName: 'Archive Skia linux-arm64'
+    inputs:
+      rootFolderOrFile: '$(build.sourcesdirectory)/src/Calculator.Skia.Gtk/bin/Release/net7.0/linux-arm64/publish/'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/skia/Calculator-linux-arm64.zip' 
+      includeRootFolder: false
+
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Package Artifacts
+    retryCountOnTaskFailure: 3
+    inputs:
+      pathToPublish: $(build.artifactstagingdirectory)
+      artifactType: container
+      artifactName: Calculator
+
+- job: Linux_Snap
+  dependsOn:
+    - Linux_Skia_x86
+  pool:
+    vmImage: 'ubuntu-20.04'
+
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      artifactName: Calculator
+      downloadPath: '$(build.sourcesdirectory)/build'
+
+  - script: |
+        sudo snap install snapcraft --classic --channel stable
+        sudo usermod --append --groups lxd $USER
+        export PATH=$PATH:/snap/bin
+        sudo chown root:root /
+        sudo /snap/bin/lxd.migrate -yes
+        sudo /snap/bin/lxd waitready
+        sudo /snap/bin/lxd init --auto
+
+    displayName: 'Install Snapcraft'
+    retryCountOnTaskFailure: 3
+
+  - script: |
+        export PATH=$PATH:/snap/bin
+        cd $(build.sourcesdirectory)/build
+        sg lxd -c 'snapcraft --use-lxd'
+    displayName: 'Build Snap'
+
+  - task: CopyFiles@2
+    displayName: 'Publish Snap'
+    inputs:
+      SourceFolder: $(build.sourcesdirectory)/build
+      Contents: '**/*.snap'
+      TargetFolder: $(build.artifactstagingdirectory)/skia
+      CleanTargetFolder: false
+      OverWrite: false
+      flattenFolders: false
+
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Package Artifacts
+    retryCountOnTaskFailure: 3
+    inputs:
+      pathToPublish: $(build.artifactstagingdirectory)
+      artifactType: container
+      artifactName: Calculator
+
+- job: ARM64_Snap
+  dependsOn:
+    - Linux_Skia_ARM
+
+  container: unoplatform/snapcraft:20201014-arm64
+  pool: 'Linux-Arm64-20.04'
+
+  steps:
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      artifactName: Calculator
+      downloadPath: '$(build.sourcesdirectory)/build'
+
+  - script: |
+        cd $(build.sourcesdirectory)/build
+        snapcraft
+
+    retryCountOnTaskFailure: 3
+        
+  - task: CopyFiles@2
+    displayName: 'Publish Snap'
+    inputs:
+      SourceFolder: $(build.sourcesdirectory)/build
+      Contents: '**/*.snap'
+      TargetFolder: $(build.artifactstagingdirectory)/skia
+      CleanTargetFolder: false
+      OverWrite: false
+      flattenFolders: false
+
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Package Artifacts
+    retryCountOnTaskFailure: 3
+    inputs:
+      pathToPublish: $(build.artifactstagingdirectory)
+      artifactType: container
+      artifactName: Calculator
+
+# armhf is not supported by azuredevops
+# - job: ARMHF_Snap
+#   dependsOn:
+#     - Linux_Skia_ARM
+# 
+#   container: unoplatform/snapcraft:20201014-armhf
+#   pool: 'Linux-Arm64-20.04'
+# 
+#   steps:
+#   - task: DownloadBuildArtifacts@0
+#     inputs:
+#       artifactName: Calculator
+#       downloadPath: '$(build.sourcesdirectory)/build'
+# 
+#   - script: |
+#         cd $(build.sourcesdirectory)/build
+#         snapcraft
+#         
+#   - task: CopyFiles@2
+#     displayName: 'Publish Snap'
+#     inputs:
+#       SourceFolder: $(build.sourcesdirectory)/build
+#       Contents: '**/*.snap'
+#       TargetFolder: $(build.artifactstagingdirectory)/skia
+#       CleanTargetFolder: false
+#       OverWrite: false
+#       flattenFolders: false
+# 
+#   - task: PublishBuildArtifacts@1
+#     displayName: Publish Package Artifacts
+#     inputs:
+#       pathToPublish: $(build.artifactstagingdirectory)
+#       artifactType: container
+#       artifactName: Calculator
+
+- job: x64_AppImage
+  dependsOn:
+    - Linux_Skia_x86
+    
+  pool:
+    vmImage: 'ubuntu-20.04'
+
+  container:
+    image: appimagecrafters/appimage-builder:0.7.2
+    options: "--name ci-container -v /usr/bin/docker:/tmp/docker:ro"
+
+  steps:
+  - task: UseDotNet@2
+    displayName: 'Use .Net Core runtime 3.1.x'
+    retryCountOnTaskFailure: 3
+    inputs:
+      packageType: sdk
+      version: '3.1.x'
+
+  - task: gitversion/setup@0
+    retryCountOnTaskFailure: 3
+    inputs:
+      versionSpec: '5.x'
+
+  - task: gitversion/execute@0
+    inputs:
+      updateAssemblyInfo: 'False'
+      useConfigFile: true
+      configFilePath: gitversion.yml
+    displayName: Use GitVersion
+
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      artifactName: Calculator
+      downloadPath: '$(build.sourcesdirectory)/build'
+
+  - script: |
+      /tmp/docker exec -t -u 0 ci-container \
+      sh -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -y install sudo"
+      sudo apt update
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata
+      sudo apt -y install zip
+    displayName: 'Setup dependencies'
+    retryCountOnTaskFailure: 3
+
+  - script: |
+        cd $(build.sourcesdirectory)/build/appimage
+        mkdir -p AppDir/usr/bin/uno-calculator
+        unzip $(build.sourcesdirectory)/build/Calculator/skia/Calculator-linux-x64.zip -d AppDir/usr/bin/uno-calculator
+        mkdir -p AppDir/usr/share/icons/50x50
+        cp AppDir/usr/bin/uno-calculator/Assets/StoreLogo.png AppDir/usr/share/icons/50x50/
+        appimage-builder --recipe AppImageBuilder.x64.yaml --skip-test
+        cp *.AppImage $(build.artifactstagingdirectory)
+
+    env:
+      GITVERSION_FullSemVer: $(GitVersion.FullSemVer)
+
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Package Artifacts
+    retryCountOnTaskFailure: 3
+    inputs:
+      pathToPublish: $(build.artifactstagingdirectory)
+      artifactType: container
+      artifactName: Calculator
