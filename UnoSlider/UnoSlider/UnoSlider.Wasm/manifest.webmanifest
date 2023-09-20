@@ -1,0 +1,10 @@
+{
+  "background_color": "#ffffff",
+  "description": "UnoSlider",
+  "display": "standalone",
+  "name": "UnoSlider",
+  "short_name": "UnoSlider",
+  "start_url": "/index.html",
+  "theme_color": "#ffffff",
+  "scope": "/"
+}
